@@ -1,15 +1,66 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Some sort of title?</title>
-  <meta name="description" content="What is this?">
-  <meta name="author" content="Who?">
-  <!--[if lt IE 9]>
-<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-<![endif]-->
-</head>
-<body>
-    <p>Your server is working.</p>
-</body>
-</html>
+<!DOCTYPE html>
+ <html lang="en">
+
+ <head>
+     <meta charset="utf-8">
+     <meta http-equiv="X-UA-Compatible" content="IE=edge">
+     <meta name="viewport" content="width=device-width, initial-scale=1">
+     <meta name="description" content="">
+     <meta name="author" content="">
+     <link rel="icon" href="../../favicon.ico">
+
+     <title>Policy Manager</title>
+
+     <!-- Bootstrap core CSS -->
+     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+
+     <!-- Bootstrap Requirements -->
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+ </head>
+
+     <body id="body">
+
+     <div class="mx-auto" style="max-width: 40%" >
+
+         <form class="policy-select" action="/" method="post" role="form">
+             <h2 class="policy-select-heading">Enter a Policy Number and Effective Date</h2>
+             <input type="text" name="policy-number" class="form-control" placeholder="Policy Two" required autofocus>
+             <input type="date" name="policy-date" class="form-control" required>
+             <input id="button" class="btn btn-lg btn-primary btn-block" type="submit"></button>
+         </form>
+        {% if no_results == True %}
+        <h4>No Results Found: Please try again.</h4>
+        {% endif %}
+    </div>
+    {% if data %}
+    <div class="mx-auto" style="max-width: 80%">
+        <h3>Account Balance: ${{ policybalance }}</h3>
+        <table class="table">
+            <thead class="thead-dark">
+                <tr>
+                    <th id="invoice_id" scope="col">Invoice ID</th>
+                    <th id="bill_date" scope="col">Bill Date</th>
+                    <th id="due_date" scope="col">Due Date</th>
+                    <th id="cancel_date" scope="col">Cancel Date</th>
+                    <th id="amount_due" scope="col">Amount Due</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in data %}
+                <tr>
+                    <th scope="row">{{ item[0] }}</td>
+                    <td>{{ item[1] }}</td>
+                    <td>{{ item[2] }}</td>
+                    <td>{{ item[3] }}</td>
+                    <td>${{ item[4] }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </table>
+    {% endif %}
+
+ </body>
+
+ </html>
