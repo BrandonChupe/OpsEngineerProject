@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 
 from accounting import db
 from models import Contact, Invoice, Payment, Policy
+from sqlalchemy.orm.exc import NoResultFound
 
 """
 #######################################################
@@ -121,28 +122,63 @@ class PolicyAccounting(object):
         else:
             print "THIS POLICY SHOULD NOT CANCEL"
 
-    def make_invoices(self):
+    def change_billing_schedule(self,  billing_schedule, date_cursor=None):
+        """
+        Changes billing schedule for all invoices past the date provided then
+        uses make_invoices to mark old invoices as deleted and create using
+        make_invoices.
+        """
+        if not date_cursor:
+            date_cursor = datetime.now().date()
+
+        self.policy.billing_schedule = billing_schedule
+
+        self.make_invoices(date_cursor)
+
+    def make_invoices(self, date_cursor=None):
         """
         Removes invoices for current policy and replaces them with newly
-        created invoices. Queries for first invoice to determine
+        created invoices. If date is passed, delete and recreate only invoices
+        on or after that date. Queries for first invoice to determine
         billing_schedule and amount_due. amount due is divided by the number
         of invoices and the number of invoices is generated based on what is
-        required by the billing_schedule.
+        required by the billing_schedule. Date object needs to be passed, not a
+        string
         """
-        for invoice in self.policy.invoices:
-            invoice.delete()
+        if not date_cursor:
+            date_cursor = self.policy.effective_date
+            total_remaining = self.policy.annual_premium
+        else:
+            total_remaining = 0
+
+        invoices = Invoice.query.filter_by(policy_id=self.policy.id)\
+                                .filter(Invoice.bill_date >= date_cursor)\
+                                .order_by(Invoice.bill_date)\
+                                .all()
+
+        if total_remaining == 0:
+            for invoice in invoices:
+                total_remaining += invoice.amount_due
+                invoice.deleted = True
+                db.session.add(invoice)
+        else:
+            for invoice in invoices:
+                invoice.deleted = True
+                db.session.add(invoice)
+
+        db.session.commit()
 
         billing_schedules = {'Annual': None, 'Semi-Annual': 3, 'Quarterly': 4,
                              'Two-Pay': 2, 'Monthly': 12}
 
         invoices = []
         first_invoice = Invoice(self.policy.id,
-                                self.policy.effective_date,  # bill_date
-                                self.policy.effective_date + \
+                                date_cursor,  # bill_date
+                                date_cursor + \
                                 relativedelta(months=1),  # due
-                                self.policy.effective_date + \
+                                date_cursor + \
                                 relativedelta(months=1, days=14),  # cancel
-                                self.policy.annual_premium)
+                                total_remaining)
         invoices.append(first_invoice)
 
         if self.policy.billing_schedule == "Annual":
@@ -153,13 +189,13 @@ class PolicyAccounting(object):
             for i in range(1, billing_schedules.get(self.policy
                                                     .billing_schedule)):
                 months_after_eff_date = i*6
-                bill_date = self.policy.effective_date + \
+                bill_date = date_cursor + \
                     relativedelta(months=months_after_eff_date)
                 invoice = Invoice(self.policy.id,
                                   bill_date,
                                   bill_date + relativedelta(months=1),
                                   bill_date + relativedelta(months=1, days=14),
-                                  self.policy.annual_premium /
+                                  total_remaining /
                                   billing_schedules.get(self.policy
                                                         .billing_schedule))
                 invoices.append(invoice)
@@ -169,13 +205,13 @@ class PolicyAccounting(object):
             for i in range(1, billing_schedules.get(self.policy
                                                     .billing_schedule)):
                 months_after_eff_date = i*3
-                bill_date = self.policy.effective_date + \
+                bill_date = date_cursor + \
                     relativedelta(months=months_after_eff_date)
                 invoice = Invoice(self.policy.id,
                                   bill_date,
                                   bill_date + relativedelta(months=1),
                                   bill_date + relativedelta(months=1, days=14),
-                                  self.policy.annual_premium /
+                                  total_remaining /
                                   billing_schedules.get(self.policy
                                                         .billing_schedule))
                 invoices.append(invoice)
@@ -185,13 +221,13 @@ class PolicyAccounting(object):
             for i in range(1, billing_schedules.get(self.policy
                                                     .billing_schedule)):
                 months_after_eff_date = i*1
-                bill_date = self.policy.effective_date + \
+                bill_date = date_cursor + \
                     relativedelta(months=months_after_eff_date)
                 invoice = Invoice(self.policy.id,
                                   bill_date,
                                   bill_date + relativedelta(months=1),
                                   bill_date + relativedelta(months=1, days=14),
-                                  self.policy.annual_premium /
+                                  total_remaining /
                                   billing_schedules.get(self.policy
                                                             .billing_schedule))
                 invoices.append(invoice)
@@ -238,6 +274,7 @@ def insert_data():
     policies = []
     p1 = Policy('Policy One', date(2015, 1, 1), 365)
     p1.billing_schedule = 'Annual'
+    p1.named_insured = john_doe_insured.id
     p1.agent = bob_smith.id
     policies.append(p1)
 
@@ -252,6 +289,12 @@ def insert_data():
     p3.named_insured = ryan_bucket.id
     p3.agent = john_doe_agent.id
     policies.append(p3)
+
+    p4 = Policy('Policy Four', date(2015, 2, 1), 500)
+    p4.billing_schedule = 'Two-Pay'
+    p4.named_insured = ryan_bucket.id
+    p4.agent = john_doe_agent.id
+    policies.append(p4)
 
     for policy in policies:
         db.session.add(policy)
