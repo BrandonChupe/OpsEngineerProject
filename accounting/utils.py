@@ -1,6 +1,6 @@
 #!/user/bin/env python2.7
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 from accounting import db
@@ -55,8 +55,10 @@ class PolicyAccounting(object):
         """
         Adds a payment to payments table. Checks for contact_id. If there is no
         contact_id, check for self.policy.named_insured. If there is none,
-        trigger an exception.
+        trigger an exception. Ensures only agents may make payments on
+        cancellation_pending_due_to_non_pay invoices.
         """
+
         if not date_cursor:
             date_cursor = datetime.now().date()
 
@@ -65,6 +67,12 @@ class PolicyAccounting(object):
                 contact_id = self.policy.named_insured
             except Exception:
                 pass
+
+        if self.evaluate_cancellation_pending_due_to_non_pay(
+                date_cursor) is True and \
+                Contact.query.filter_by(id=contact_id).one().role != "Agent":
+            print("Only an agent may make a payment on this invoice.")
+            return
 
         payment = Payment(self.policy.id,
                           contact_id,
@@ -82,7 +90,12 @@ class PolicyAccounting(object):
          being paid in full. However, it has not necessarily
          made it to the cancel_date yet.
         """
-        pass
+        if not date_cursor:
+            date_cursor = datetime.now().date()
+
+        if self.return_account_balance(date_cursor -
+                                       timedelta(days=1)) > 0:
+            return True
 
     def evaluate_cancel(self, date_cursor=None):
         """
