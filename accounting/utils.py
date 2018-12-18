@@ -98,12 +98,18 @@ class PolicyAccounting(object):
                                        timedelta(days=1)) > 0:
             return True
 
-    def evaluate_cancel(self, date_cursor=None):
+    def evaluate_cancel(self, date_cursor=None, cancellation_reason=None,
+                        cancellation_description=None):
         """
-        Checks if invoice contains an account balance. Queries using policy id
-        and date to look for invoices with cancel dates less than the current
-        date. If any invoice returns an account balance, print that this policy
-        should have cancelled. Otherwise, print that it should not cancel.
+        If there is no cancellation reason: checks if invoice contains an
+        account balance. Queries using policy id and date to look for invoices
+        with cancel dates less than the date_cursor. If any invoice returns an
+        account balance, set cancellation_reason, description, and date. If
+        there is no cancellation_reason and no account_balances remaining,
+        print that the policy should not cancel and return. Otherwise, set the
+        policy.cancellation items equal to cancellation_reason,
+        cancellation_description, and cancellation_date followed by printing
+        the cancellation information to the screen.
         """
         if not date_cursor:
             date_cursor = datetime.now().date()
@@ -112,15 +118,31 @@ class PolicyAccounting(object):
                                 .filter(Invoice.cancel_date <= date_cursor)\
                                 .order_by(Invoice.bill_date)\
                                 .all()
+        if not cancellation_reason:
+            for invoice in invoices:
+                if not self.return_account_balance(invoice.cancel_date):
+                    continue
+                else:
+                    cancellation_reason = "Past Due Payments"
+                    cancellation_description = "Invoice ID: " + invoice.id + \
+                        "Due Date: " + invoice.due_date + "Amount Due:" + \
+                        invoice.amount_due
+                    break
 
-        for invoice in invoices:
-            if not self.return_account_balance(invoice.cancel_date):
-                continue
-            else:
-                print "THIS POLICY SHOULD HAVE CANCELED"
-                break
-        else:
             print "THIS POLICY SHOULD NOT CANCEL"
+
+            return
+
+        self.policy.status = "Canceled"
+        self.policy.cancellation_reason = cancellation_reason
+        self.policy.cancellation_description = cancellation_description
+        self.policy.cancellation_date = date_cursor
+
+        db.session.commit()
+
+        print "Policy canceled on " + str(date_cursor) + " for " + \
+              cancellation_reason + ": " + cancellation_description
+
 
     def change_billing_schedule(self,  billing_schedule, date_cursor=None):
         """
