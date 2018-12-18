@@ -120,7 +120,7 @@ class PolicyAccounting(object):
             invoice.delete()
 
         billing_schedules = {'Annual': None, 'Semi-Annual': 3, 'Quarterly': 4,
-                             'Monthly': 12}
+                             'Two-Pay': 2, 'Monthly': 12}
 
         invoices = []
         first_invoice = Invoice(self.policy.id,
